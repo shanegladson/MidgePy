@@ -6,29 +6,35 @@ import Environment
 
 sns.set_style('whitegrid')
 
-midgedeerratio = 500  # Midge/deer ratio
+midgedeerratio = 30  # Midge/deer ratio
 
 deerpop = 100
-midgepop = midgedeerratio * deerpop
+midgepop = deerpop * midgedeerratio
 
-envir = Environment.Envir(length=800)
+midges = np.full(midgepop, False)
+midges[0:5] = True  # Let some midges be infected with BTV
+
+envir = Environment.Envir(length=2500)
 deer = Swarm.DeerSwarm(envir=envir, size=deerpop)
-swrm = Swarm.MidgeSwarm(envir=envir, size=midgepop, deerswarm=deer)
+swrm = Swarm.MidgeSwarm(envir=envir, size=midgepop, deerswarm=deer, infected=midges)
 dt = 60  # Step the simulation every 60 seconds (1 minute)
-steps = 400  # Total number of steps for the simulation
+steps = 300 * 15  # Total number of steps for the simulation
+
 
 print("Moving swarm...")
 for i in range(steps):
     swrm.move(dt)
 
-    if i % 10 == 0:
+    if i % 300 == 0:
         print("Step", i)
 
-sns.lineplot(x=range(steps), y=swrm.totalinfectedmidges, label='% Midge Infections')
-sns.lineplot(x=range(steps), y=swrm.deerswarm.totalinfecteddeer, label='% Deer Infections')
-plt.legend()
-plt.title("Midge and Deer Infections Over Time")
-plt.xlabel("Time (in minutes)")
-plt.ylabel("% Infected")
-plt.savefig('MidgeDeerInfections.svg', dpi=800)
-plt.show()
+swrm.writetocsv()
+
+# sns.lineplot(x=range(steps), y=swrm.totalinfectedmidges, label='% Midge Infections')
+# sns.lineplot(x=range(steps), y=swrm.deerswarm.totalinfecteddeer, label='% Deer Infections')
+# plt.legend()
+# plt.title("Midge and Deer Infections Over Time")
+# plt.xlabel("Time (in minutes)")
+# plt.ylabel("% Infected")
+# plt.savefig('MidgeDeerInfections.svg', dpi=800)
+# plt.show()

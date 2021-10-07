@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 
 """ This is the main swarm class, where all midges are simulated. This class holds all attributes of the midges and will
 be responsible for moving the deer during its move function as well. Moving the time is done by calling the move() method
@@ -8,7 +9,7 @@ so be sure not to move the deer on their own! This feature will be added later.
 
 class MidgeSwarm:
 
-    def __init__(self, envir, deerswarm, size=100, positions='random', infected='random'):
+    def __init__(self, envir, deerswarm, size=100, infected='random'):
 
         self.step = 0  # Initialize the step counter
         self.size = size  # Define the population size of the swarm object
@@ -16,35 +17,56 @@ class MidgeSwarm:
         self.activeflightvelocity = 0.5  # (m/s) Define the average active velocity of a midge per second
         self.roamflightvelocity = 0.13  # (m/s) Define the average roaming velocity of a midge per second
         self.detectiondistance = 300  # (m) Define the distance at which the midges can detect the deer
-        self.bitethresholddistance = 3  # (m) Define the distance at which a midge must be in order to bite the deer
-        self.iip = 21  # (days) Define the intrinsic incubation period (IIP)
+        self.bitethresholddistance = self.activeflightvelocity  # (m) Define the distance at which a midge must be in order to bite the deer
+        self.iip = 2  # (days) Define the intrinsic incubation period (IIP)
         # self.fed = np.random.choice([True, False], size=self.size)  # Define an array for whether the midges have fed or not
         self.midgebitesperstep = []  # Keep track of the midge bites each time step
         self.totalinfectedmidges = []  # Keep track of the total number of infected midges
         self.btvincubating = np.full(self.size,
                                      False)  # Define the array that tracks whether BTV is incubating inside the midge
+        self.incubationstarttime = np.full(self.size,
+                                           0)  # Create an array that tracks when midges begin incubation for BTV
         self.envir = envir  # Attach the environment object to the swarm class
         self.deerswarm = deerswarm  # The midge swarm class will take the deer swarm to know the locations and attributes of each host
         self.daylength = 300  # The length in minutes of a single day (note it is not the entire day, only the length of each period simulated TODO: UPDATE DAY LENGTH
         self.timeoffeeding = np.random.randint(-self.daylength, 0,
                                                self.size)  # List to keep track of the time when each midge has fed
-        self.randomvector = self.generate_random_vector()  # Array of random vector where the midges travel, updates every few steps
+
+        self.midgedeath = True  # Enable this if you would like to simulate midges dying and being replaced by new ones
+        self.dps = 0.95  # Daily Probability of Survival. Only enable if self.midgedeath is true
 
         # Create a random positions array for the midges if desired, otherwise it is defined
-        if positions == 'random':
-            self.positions = np.random.uniform(low=0.0, high=envir.length, size=(self.size, 2))
-        else:
-            self.positions = positions
+        self.positions = np.random.uniform(low=0.0, high=envir.length, size=(self.size, 2))
+
+        self.randomvector = self.generate_random_vector()  # Array of random vector where the midges travel, updates every few steps
 
         # Create a random array of which midges are infected if desired, otherwise it is defined
         if infected == 'random':
-            self.infected = np.random.choice([True, False], self.size, p=[0.02, 0.98])
-            # self.infected = np.full(self.size, False)
+            self.infected = np.random.choice([True, False], self.size, p=[0.01, 0.99])
         else:
             self.infected = infected
 
     # The step function that calculates all movement (dt is given in seconds)
     def move(self, dt=1):
+
+        # Update the infected midges to be those that have completed their IIP
+        self.infected = np.logical_or(self.infected, np.logical_and(self.incubationstarttime != 0, np.abs(
+            self.incubationstarttime - self.step) >= self.daylength * self.iip))
+
+        # Move the deer once every day
+        if self.step % self.daylength == 0:
+            self.deerswarm.move()
+
+            # Replace some midges every day if self.midgedeath is enabled
+            if self.midgedeath:
+                survivingmidges = np.random.choice([True, False], self.size, p=[self.dps, 1-self.dps])
+                newpositions = np.random.uniform(low=0.0, high=self.envir.length, size=(self.size, 2))
+
+                # Give the midges new positions and reset all other parameters
+                self.btvincubating *= survivingmidges
+                self.incubationstarttime *= survivingmidges
+                survivingmidges = np.expand_dims(survivingmidges, 1)
+                self.positions = self.positions*survivingmidges + newpositions*(~survivingmidges)
 
         # A new random vector is generated every 30 minutes for the midges to travel in
         if self.step % 30 == 0:
@@ -71,9 +93,7 @@ class MidgeSwarm:
         # The list of midges that are within the detection distance of their closest host and have not fed
         detectinghost = (hostdistances < self.detectiondistance) & ~self.fed
 
-        # print(detectinghost.sum(), "midges detecting deer")
-
-        # Calculate the new positions by using the flightvelocity variable, don't even ask me how it works bc idk
+        # Calculate the new positions by using the flightvelocity variable
         self.positions = self.get_positions() + self.activeflightvelocity * dt * ((np.expand_dims(detectinghost, 1) *
                                                                                    np.divide(midgedirections,
                                                                                              np.expand_dims(
@@ -87,7 +107,7 @@ class MidgeSwarm:
                                                                                       detectinghost, 1)))
 
         # Calculate which midges will feed and the results of their feeding
-        self.feed(closestdeer)
+        self.feed(closestdeer, dt)
 
         # Append the position history to pos_history
         self.pos_history.append(self.get_positions())
@@ -96,12 +116,15 @@ class MidgeSwarm:
         self.step += 1
 
     # Returns the matrix of vectors from every midge to every deer (midges x deer x 2) size
-    # TODO: COULD OPTIMIZE WITH NUMPY ARRAYS
     def calculate_target_matrix(self):
-        matrix = []
-        for m in self.get_positions():
-            vectors = self.deerswarm.get_positions() - m
-            matrix.append(vectors)
+        matrix = np.empty(shape=(self.size, self.deerswarm.size, 2))
+        pos = self.deerswarm.get_positions()
+
+        # TODO: VERIFY THAT THIS WORKS
+        for i in range(self.deerswarm.size):
+            vectors = self.get_positions() - pos[i]
+            matrix[:, i] = vectors
+
         return np.array(matrix)
 
     # Returns the numpy array of positions
@@ -120,49 +143,58 @@ class MidgeSwarm:
     def get_full_pos_history(self):
         return [*self.pos_history, self.get_positions()]
 
-    # Random movement function that selects random direction uniformly and movement length on a normal curve,
-    # sigma will be defined
-    def generate_random_vector(self, sigma=1.0):
+    # Random movement function
+    def generate_random_vector(self):
+        # Creates a vector from the midge to a random position within the domain, then the midge will follow that vector
+        newvectors = np.random.uniform(low=0.0, high=self.envir.length, size=(self.size, 2)) - self.positions
+        newvectors /= np.expand_dims(np.linalg.norm(newvectors, axis=1), axis=1)
 
-        # Calculate the angles from a uniform distribution, find the x- and y-components
-        randomwalkangles = np.random.uniform(0, 2 * np.pi, self.size)
-        xcomponent = np.cos(randomwalkangles)
-        ycomponent = np.sin(randomwalkangles)
-        randomwalkvector = np.vstack((xcomponent, ycomponent)).T
+        return newvectors
 
-        return randomwalkvector
-
-    def feed(self, closestdeer):
+    def feed(self, closestdeer, dt):
 
         # Find which midges are close enough to the host to bite them and they have not recently fed
-        feedingmidges = (closestdeer < self.bitethresholddistance) & ~self.fed
+        feedingmidges = (closestdeer < self.bitethresholddistance * dt) & ~self.fed
 
-        # The midges will become infected if they are feeding and the closest deer is infected, do the same for the deer
-        self.infected = np.logical_or(self.infected, np.random.choice([True, False], self.size, p=[0.5, 0.5]) * (
-                feedingmidges & self.deerswarm.infected[closestdeer]))
+        # The midges will begin BTV incubation if they are feeding and the closest deer is infected, do the same for the deer
+        self.newincubation = np.random.choice([True, False], self.size, p=[0.5, 0.5]) * (
+                feedingmidges & self.deerswarm.infected[closestdeer])
+
+        self.incubationstarttime[self.newincubation] = self.step
 
         # TODO: COULD PROBABLY MAKE THIS MORE EFFICIENT
+        # Create the probability of infection array that determines which deer will become infected if bitten during this timestep
         infectedprob = np.random.choice([True, False], self.size, p=(0.5, 0.5))
         # Track which deer are infected
         for i in range(self.size):
-            # The deer can be infected with a 90% chance from a single bite from an infected midge
+            # The deer can be infected with probability infectedprob from a single bite from an infected midge
             self.deerswarm.infected[closestdeer[i]] = np.logical_or(
                 (feedingmidges[i] & self.infected[i]) * infectedprob[i],
                 self.deerswarm.infected[closestdeer[i]])
 
-        # print(self.deerswarm.infected)
-        # TODO: THE PROGRAM ONLY WORKS IF THIS LINE IS HERE BUT I DON'T KNOW WHY
+        # TODO: FIGURE OUT WHY THIS LINE CHANGES THE RESULTS
         # self.fed = np.logical_or(self.fed, feedingmidges)
-        self.fed[feedingmidges] = True
 
         # Update time of feeding to the current step for the midges which have just fed
         self.timeoffeeding[feedingmidges] = self.step
 
         # Append the midge bites for this time step and total infected midges
         self.midgebitesperstep.append(feedingmidges.sum())
-        self.totalinfectedmidges.append(self.infected.sum()/self.size)
-        self.deerswarm.totalinfecteddeer.append(self.deerswarm.infected.sum()/self.deerswarm.size)
+        self.totalinfectedmidges.append(self.infected.sum())
+        self.deerswarm.totalinfecteddeer.append(self.deerswarm.infected.sum())
 
+        return
+
+    def writetocsv(self, fname='midgesim.csv'):
+        with open(fname, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',')
+            writer.writerow(
+                ['Step', 'Infected Midges', 'Infected Midges %', 'Infected Deer', 'Infected Deer %', 'Midge Bites'])
+            for i in range(self.step):
+                writer.writerow([i, self.totalinfectedmidges[i], self.totalinfectedmidges[i] / self.size * 100,
+                                 self.deerswarm.totalinfecteddeer[i],
+                                 self.deerswarm.totalinfecteddeer[i] / self.deerswarm.size * 100,
+                                 self.midgebitesperstep[i]])
         return
 
 
@@ -195,11 +227,9 @@ class DeerSwarm:
         else:
             self.infected = infected
 
-    # Move function that is called by the MidgeSwarm class, DO NOT CALL!!!
+    # Move function that is called by the MidgeSwarm class, generates a new set of points for the deer (random)
     def move(self):
-        print("Moving deer...")
-
-    # TODO: Add deer movement functions
+        self.positions = np.random.uniform(low=0.0, high=self.envir.length, size=(self.size, 2))
 
     # Returns the numpy array of positions
     def get_positions(self):
