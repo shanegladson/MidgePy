@@ -18,7 +18,7 @@ envir = Environment.Envir(length=2500)
 deer = Swarm.DeerSwarm(envir=envir, size=deerpop)
 swrm = Swarm.MidgeSwarm(envir=envir, size=midgepop, deerswarm=deer, infected=midges)
 dt = 60  # Step the simulation every 60 seconds (1 minute)
-steps = 300 * 15  # Total number of steps for the simulation
+steps = 300 * 3  # Total number of steps for the simulation
 
 
 print("Moving swarm...")
