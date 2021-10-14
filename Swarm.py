@@ -31,11 +31,12 @@ class MidgeSwarm:
         self.envir = envir  # Attach the environment object to the swarm class
         self.deerswarm = deerswarm  # The midge swarm class will take the deer swarm to know the locations and attributes of each host
         self.daylength = 300  # The length in minutes of a single day (note it is not the entire day, only the length of each period simulated
-        self.timeoffeeding = np.random.randint(-self.daylength, 0,
+        self.biterate = 2 * self.daylength  # This variable determines how often a midge is expected to bite a deer
+        self.timeoffeeding = np.random.randint(-self.biterate, 0,
                                                self.size)  # List to keep track of the time when each midge has fed
 
         self.midgedeath = True  # Enable this if you would like to simulate midges dying and being replaced by new ones
-        self.dps = 0.8  # Daily Probability of Survival. Only enable if self.midgedeath is true
+        self.dps = 0.85  # Daily Probability of Survival. Only enable if self.midgedeath is true
 
         # Create a random positions array for the midges if desired, otherwise it is defined
         self.positions = np.random.uniform(low=0.0, high=envir.length, size=(self.size, 2))
@@ -65,8 +66,8 @@ class MidgeSwarm:
                 survivingmidges = np.random.choice([True, False], self.size, p=[self.dps, 1-self.dps])
                 newpositions = np.random.uniform(low=0.0, high=self.envir.length, size=(self.size, 2))
 
-                self.infecteddeaths.append(np.sum(survivingmidges & self.infected))
-                self.uninfecteddeaths.append(np.sum(survivingmidges & ~self.infected))
+                self.infecteddeaths.append(np.sum(~survivingmidges & self.infected))
+                self.uninfecteddeaths.append(np.sum(~survivingmidges & ~self.infected))
 
 
                 # Give the midges new positions and reset all other parameters
@@ -81,7 +82,7 @@ class MidgeSwarm:
             self.randomvector = self.generate_random_vector()
 
         # Calculate which midges have fed lately by tracking when the last bloodmeal was
-        self.fed = ~(np.abs(self.timeoffeeding - self.step) > self.daylength)
+        self.fed = ~(np.abs(self.timeoffeeding - self.step) > self.biterate)
 
         # Find the matrix of vectors from each midge to each deer (self.size x self.deerswarm.size matrix)
         targetmatrix = self.calculate_target_matrix()
@@ -115,7 +116,7 @@ class MidgeSwarm:
                                                                                       detectinghost, 1)))
 
         # Calculate which midges will feed and the results of their feeding
-        self.feed(closestdeer, dt)
+        self.feed(closestdeer, hostdistances, dt)
 
         # Append the position history to pos_history
         self.pos_history.append(self.get_positions())
@@ -159,10 +160,13 @@ class MidgeSwarm:
 
         return newvectors
 
-    def feed(self, closestdeer, dt):
+    def feed(self, closestdeer, hostdistances, dt):
 
         # Find which midges are close enough to the host to bite them and they have not recently fed
-        feedingmidges = (closestdeer < self.bitethresholddistance * dt) & ~self.fed
+        # feedingmidges = (closestdeer < self.bitethresholddistance * dt) & ~self.fed
+        feedingmidges = np.full(self.size, False)
+        for i in range(self.size):
+            feedingmidges[i] = (hostdistances[closestdeer[i]] < self.bitethresholddistance * dt) & ~self.fed[i]
 
         # The midges will begin BTV incubation if they are feeding and the closest deer is infected, do the same for the deer
         self.newincubation = np.random.choice([True, False], self.size, p=[0.5, 0.5]) * (
@@ -170,18 +174,12 @@ class MidgeSwarm:
 
         self.incubationstarttime[self.newincubation] = self.step
 
-        # TODO: COULD PROBABLY MAKE THIS MORE EFFICIENT
         # Create the probability of infection array that determines which deer will become infected if bitten during this timestep
-        infectedprob = np.random.choice([True, False], self.size, p=(0.5, 0.5))
+        infectedprob = np.random.choice([True, False], self.size, p=(1.0, 0.0))
         # Track which deer are infected
         for i in range(self.size):
             # The deer can be infected with probability infectedprob from a single bite from an infected midge
-            self.deerswarm.infected[closestdeer[i]] = np.logical_or(
-                (feedingmidges[i] & self.infected[i]) * infectedprob[i],
-                self.deerswarm.infected[closestdeer[i]])
-
-        # TODO: FIGURE OUT WHY THIS LINE CHANGES THE RESULTS
-        # self.fed = np.logical_or(self.fed, feedingmidges)
+            self.deerswarm.infected[closestdeer[i]] += feedingmidges[i] & self.infected[i] & infectedprob[i]
 
         # Update time of feeding to the current step for the midges which have just fed
         self.timeoffeeding[feedingmidges] = self.step
@@ -190,8 +188,8 @@ class MidgeSwarm:
         self.midgebitesperstep.append(feedingmidges.sum())
         self.totalinfectedmidges.append(self.infected.sum())
         self.deerswarm.totalinfecteddeer.append(self.deerswarm.infected.sum())
+        print(self.deerswarm.infected.sum())
 
-        return
 
     def writetocsv(self, fname='midgesim.csv'):
         with open(fname, 'w', newline='') as csvfile:
