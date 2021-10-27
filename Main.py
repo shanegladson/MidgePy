@@ -1,11 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
 import Swarm
 import Environment
 
 sns.set_style('whitegrid')
-for j in range(10):
+for j in range(1):
     midgedeerratio = 30  # Midge/deer ratio
 
     deerpop = 100
