@@ -19,7 +19,7 @@ class MidgeSwarm:
         self.roamflightvelocity = 0.13  # (m/s) Define the average roaming velocity of a midge per second
         self.detectiondistance = 300  # (m) Define the distance at which the midges can detect the deer
         self.bitethresholddistance = self.activeflightvelocity  # (m) Define the distance at which a midge must be in order to bite the deer
-        self.iip = 21  # (days) Define the intrinsic incubation period (IIP)
+        self.eip = 21  # (days) Define the extrinsic incubation period (EIP)
         self.midgebitesperstep = []  # Keep track of the midge bites each time step
         self.totalinfectedmidges = []  # Keep track of the total number of infected midges
         self.infecteddeaths = []  # Keep track of the number of infected midges that die each step (only if midgedeath is True)
@@ -54,9 +54,9 @@ class MidgeSwarm:
     # The step function that calculates all movement (dt is given in seconds)
     def move(self, dt=1):
 
-        # Update the infected midges to be those that have completed their IIP
+        # Update the infected midges to be those that have completed their EIP
         self.infected = np.logical_or(self.infected, np.logical_and(self.incubationstarttime != 0, np.abs(
-            self.incubationstarttime - self.step) >= self.daylength * self.iip))
+            self.incubationstarttime - self.step) >= self.daylength * self.eip))
 
         self.deerswarm.infected = np.logical_or(self.deerswarm.infected, np.logical_and(
             self.deerswarm.incubationstarttime != 0,
@@ -193,7 +193,7 @@ class MidgeSwarm:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(
                 ['Step', 'Infected Midges', 'Infected Midges %', 'Infected Deer', 'Infected Deer %', 'Midge Bites',
-                 'VF', 'VR', 'DD', 'IIP', 'PVTH', 'PHTV', 'DPS', 'PD', 'BR',
+                 'VF', 'VR', 'DD', 'EIP', 'PVTH', 'PHTV', 'DPS', 'PD', 'BR',
                  'MDR', 'IIM', 'Infected Deaths', 'Uninfected Deaths'])
             for i in range(self.step):
                 if self.midgedeath:
@@ -201,7 +201,7 @@ class MidgeSwarm:
                                      self.deerswarm.totalinfecteddeer[i],
                                      self.deerswarm.totalinfecteddeer[i] / self.deerswarm.size * 100,
                                      self.midgebitesperstep[i], self.activeflightvelocity,
-                                     self.roamflightvelocity, self.detectiondistance, self.iip, self.pVtoH,
+                                     self.roamflightvelocity, self.detectiondistance, self.eip, self.pVtoH,
                                      self.pHtoV, self.dps, self.deerswarm.size, self.biterate,
                                      self.size // self.deerswarm.size,
                                      self.totalinfectedmidges[0], self.infecteddeaths[i // self.daylength],
@@ -212,7 +212,7 @@ class MidgeSwarm:
                                      self.deerswarm.totalinfecteddeer[i],
                                      self.deerswarm.totalinfecteddeer[i] / self.deerswarm.size * 100,
                                      self.midgebitesperstep[i], self.activeflightvelocity, self.roamflightvelocity,
-                                     self.detectiondistance, self.iip, self.pVtoH,
+                                     self.detectiondistance, self.eip, self.pVtoH,
                                      self.pHtoV, self.dps, self.deerswarm.size, self.biterate,
                                      self.size // self.deerswarm.size,
                                      self.totalinfectedmidges[0]])
