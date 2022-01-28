@@ -10,7 +10,7 @@ so be sure not to move the deer on their own! This feature will be added later.
 
 class MidgeSwarm:
 
-    def __init__(self, envir, deerswarm, size=100, infected='random'):
+    def __init__(self, envir, deerswarm, size=100, infected='random', dps=0.75, eip=21):
 
         self.step = 0  # Initialize the step counter
         self.size = size  # Define the population size of the swarm object
@@ -19,7 +19,7 @@ class MidgeSwarm:
         self.roamflightvelocity = 0.13  # (m/s) Define the average roaming velocity of a midge per second
         self.detectiondistance = 300  # (m) Define the distance at which the midges can detect the deer
         self.bitethresholddistance = self.activeflightvelocity  # (m) Define the distance at which a midge must be in order to bite the deer
-        self.eip = 21  # (days) Define the extrinsic incubation period (EIP)
+        self.eip = eip  # (days) Define the extrinsic incubation period (EIP)
         self.midgebitesperstep = []  # Keep track of the midge bites each time step
         self.totalinfectedmidges = []  # Keep track of the total number of infected midges
         self.infecteddeaths = []  # Keep track of the number of infected midges that die each step (only if midgedeath is True)
@@ -38,7 +38,7 @@ class MidgeSwarm:
         self.pHtoV = 0.14  # Probability of transmission of BTV from a host to the vector
 
         self.midgedeath = True  # Enable this if you would like to simulate midges dying and being replaced by new ones
-        self.dps = 0.75  # Daily Probability of Survival. Only enable if self.midgedeath is true
+        self.dps = dps  # Daily Probability of Survival. Only enable if self.midgedeath is true
 
         # Create a random positions array for the midges if desired, otherwise it is defined
         self.positions = np.random.uniform(low=0.0, high=envir.length, size=(self.size, 2))
@@ -53,6 +53,8 @@ class MidgeSwarm:
 
     # The step function that calculates all movement (dt is given in seconds)
     def move(self, dt=1):
+
+        self.totalinfectedmidges.append(self.infected.sum())
 
         # Update the infected midges to be those that have completed their EIP
         self.infected = np.logical_or(self.infected, np.logical_and(self.incubationstarttime != 0, np.abs(
@@ -123,7 +125,7 @@ class MidgeSwarm:
         self.feed(closestdeer, hostdistances, dt)
 
         # Append the position history to pos_history
-        self.pos_history.append(self.get_positions())
+        # self.pos_history.append(self.get_positions())
 
         # Increment the step counter
         self.step += 1
@@ -182,7 +184,6 @@ class MidgeSwarm:
 
         # Append the midge bites for this time step and total infected midges
         self.midgebitesperstep.append(feedingmidges.sum())
-        self.totalinfectedmidges.append(self.infected.sum())
         self.deerswarm.totalinfecteddeer.append(self.deerswarm.infected.sum())
 
     def writetocsv(self, trial, fname='Results/midgesim'):
@@ -192,12 +193,12 @@ class MidgeSwarm:
         with open(fname, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(
-                ['Step', 'Infected Midges', 'Infected Midges %', 'Infected Deer', 'Infected Deer %', 'Midge Bites',
+                ['Step', 'Day', 'Infected Midges', 'Infected Midges %', 'Infected Deer', 'Infected Deer %', 'Midge Bites',
                  'VF', 'VR', 'DD', 'EIP', 'PVTH', 'PHTV', 'DPS', 'PD', 'BR',
                  'MDR', 'IIM', 'Infected Deaths', 'Uninfected Deaths'])
             for i in range(self.step):
                 if self.midgedeath:
-                    writer.writerow([i, self.totalinfectedmidges[i], self.totalinfectedmidges[i] / self.size * 100,
+                    writer.writerow([i, i/float(self.daylength), self.totalinfectedmidges[i], self.totalinfectedmidges[i] / self.size * 100,
                                      self.deerswarm.totalinfecteddeer[i],
                                      self.deerswarm.totalinfecteddeer[i] / self.deerswarm.size * 100,
                                      self.midgebitesperstep[i], self.activeflightvelocity,
@@ -208,7 +209,7 @@ class MidgeSwarm:
                                      self.uninfecteddeaths[i // self.daylength]])
 
                 else:
-                    writer.writerow([i, self.totalinfectedmidges[i], self.totalinfectedmidges[i] / self.size * 100,
+                    writer.writerow([i, i/float(self.daylength), self.totalinfectedmidges[i], self.totalinfectedmidges[i] / self.size * 100,
                                      self.deerswarm.totalinfecteddeer[i],
                                      self.deerswarm.totalinfecteddeer[i] / self.deerswarm.size * 100,
                                      self.midgebitesperstep[i], self.activeflightvelocity, self.roamflightvelocity,

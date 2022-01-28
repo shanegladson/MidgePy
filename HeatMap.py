@@ -5,7 +5,6 @@ import Environment
 from SALib.sample import saltelli
 
 sns.set_style('whitegrid')
-iim = 5
 
 
 def SimMidges(j, dps, eip):
@@ -15,7 +14,7 @@ def SimMidges(j, dps, eip):
     midgepop = deerpop * midgedeerratio
 
     midges = np.full(midgepop, False)
-    midges[0:iim] = True  # Let some midges be infected with BTV
+    midges[0:5] = True  # Let some midges be infected with BTV
 
     deerinf = np.full(deerpop, False)  # Entire deer population is naive to BTV
 
@@ -41,25 +40,21 @@ def SimMidges(j, dps, eip):
     return swrm.deerswarm.totalinfecteddeer[-1]
 
 
-problem = {
-    'num_vars': 2,
-    'names': ['dps', 'eip'],
-    'bounds': [
-        [0.6, 0.9],
-        [10, 20]
-    ]
-}
+params = []
+for i in range(20):
+    for j in range(20):
+        params.append(((0.6+0.015*i), 10+0.5*j))
 
-params = saltelli.sample(problem, 16)
+print(params)
 
-for i in range(3):
-    results = np.empty(shape=(params.shape[0], params.shape[1]+1))
-    for j, X in enumerate(params):
-        dps, eip = X
+for i in range(7, 10):
+    results = np.empty(shape=(np.array(params).shape[0], np.array(params).shape[1]+1))
+    for j in range(len(params)):
+        dps, eip = params[j]
         # results[j] = SimMidges(i, dps, eip)
         results[j] = [dps, eip, SimMidges(i, dps, eip)]
         print(j, results[j])
 
-    np.savetxt(fname='Results/IIM' + str(iim) + '/Trial' + str(i) + '.csv', X=results, delimiter=',', newline='\n')
+    np.savetxt(fname='Results/HeatMap/Trial' + str(i) + '.csv', X=results, delimiter=',', newline='\n')
 
 
