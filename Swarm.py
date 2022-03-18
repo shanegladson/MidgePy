@@ -99,7 +99,7 @@ class MidgeSwarm:
 
         # Find the directions for each midge by finding vector from the closest deer
         midgedirections = np.empty(shape=(self.size, 2), dtype=float)
-        for i in range(closestdeer.size):
+        for i in range(swarm.size):
             midgedirections[i] = targetmatrix[i, closestdeer[i]]
 
         # Calculate the distance that each midge must travel to reach the closest deer
