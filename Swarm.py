@@ -142,12 +142,15 @@ class MidgeSwarm:
         # midgeytiled = np.tile(self.get_positions()[:, 1], (self.deerswarm.size, 1))
 
         # dx = midgextiled.T - deerxtiled
+        
+        answer = np.subtract.outer(self.get_positions(), pos)
 
         # TODO: VERIFY THAT THIS WORKS
         for i in range(self.deerswarm.size):
             vectors = self.get_positions() - pos[i]
             matrix[:, i] = vectors
 
+        print(answer - matrix)
         return np.array(matrix)
 
     # Returns the numpy array of positions
