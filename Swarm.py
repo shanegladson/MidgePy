@@ -54,7 +54,7 @@ class MidgeSwarm:
     # The step function that calculates all movement (dt is given in seconds)
     def move(self, dt=1):
 
-        self.totalinfectedmidges.append(self.infected.sum())
+        self.totalinfectedmidges.append(np.sum(self.infected))
 
         # Update the infected midges to be those that have completed their EIP
         self.infected = np.logical_or(self.infected, np.logical_and(self.incubationstarttime != 0, np.abs(
@@ -73,8 +73,8 @@ class MidgeSwarm:
                 survivingmidges = np.random.choice([True, False], self.size, p=[self.dps, 1 - self.dps])
                 newpositions = np.random.uniform(low=0.0, high=self.envir.length, size=(self.size, 2))
 
-                self.infecteddeaths.append(np.sum(~survivingmidges & self.infected))
-                self.uninfecteddeaths.append(np.sum(~survivingmidges & ~self.infected))
+                self.infecteddeaths.append(np.sum(~survivingmidges * self.infected))
+                self.uninfecteddeaths.append(np.sum(~survivingmidges * ~self.infected))
 
                 # Give the midges new positions and reset all other parameters
                 self.btvincubating *= survivingmidges
@@ -106,7 +106,7 @@ class MidgeSwarm:
         hostdistances = np.linalg.norm(midgedirections, axis=1)
 
         # The list of midges that are within the detection distance of their closest host and have not fed
-        detectinghost = (hostdistances < self.detectiondistance) & ~self.fed
+        detectinghost = (hostdistances < self.detectiondistance) * ~self.fed
 
         # Calculate the new positions by using the flightvelocity variable
         self.positions = self.get_positions() + self.activeflightvelocity * dt * ((np.expand_dims(detectinghost, 1) *
@@ -134,6 +134,14 @@ class MidgeSwarm:
     def calculate_target_matrix(self):
         matrix = np.empty(shape=(self.size, self.deerswarm.size, 2))
         pos = self.deerswarm.get_positions()
+
+        # deerxtiled = np.tile(pos[:, 0], (self.size, 1))
+        # deerytiled = np.tile(pos[:, 1], (self.size, 1))
+
+        # midgextiled = np.tile(self.get_positions()[:, 0], (self.deerswarm.size, 1))
+        # midgeytiled = np.tile(self.get_positions()[:, 1], (self.deerswarm.size, 1))
+
+        # dx = midgextiled.T - deerxtiled
 
         # TODO: VERIFY THAT THIS WORKS
         for i in range(self.deerswarm.size):
@@ -287,9 +295,17 @@ def determinefeedingmidges(length, hostdistances, closestdeer, bitethresholddist
 
 @jit
 def determineincubation(step, length, feedingmidges, infected, infectedprob, deerswarmincubationstarttime, closestdeer):
+    qualified = feedingmidges * infected * infectedprob
     for i in range(length):
-        if feedingmidges[i] & infected[i] & infectedprob[i] & (deerswarmincubationstarttime[closestdeer[i]] == 0):
+        if qualified[i] & (deerswarmincubationstarttime[closestdeer[i]] == 0):
             # The deer can be infected with probability infectedprob from a single bite from an infected midge
             deerswarmincubationstarttime[closestdeer[i]] = step
 
     return deerswarmincubationstarttime
+
+
+
+
+
+
+
