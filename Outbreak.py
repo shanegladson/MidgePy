@@ -57,4 +57,3 @@ for k in range(iim):
         writer = csv.writer(file)
         for row in numoutbreaks:
             writer.writerow(row)
-        # np.savetxt('Results/IIM' + str(k+1) + '/OutbreakProbability.csv', X=numoutbreaks, delimiter=',', newline='\n')

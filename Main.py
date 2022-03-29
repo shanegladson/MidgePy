@@ -61,5 +61,3 @@ for i in range(3):
         print(j, results[j])
 
     np.savetxt(fname='Results/IIM' + str(iim) + '/Trial' + str(i) + '.csv', X=results, delimiter=',', newline='\n')
-
-

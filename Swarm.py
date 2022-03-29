@@ -94,13 +94,15 @@ class MidgeSwarm:
         targetmatrix = self.calculate_target_matrix()
 
         # Calculate the matrix of distances from each midge to each deer and find the closest deer
-        distancematrix = np.linalg.norm(targetmatrix, axis=2)
+        distancematrix = np.sqrt(np.square(targetmatrix[:,0,:,0]) + np.square(targetmatrix[:,1,:,1]))
+
         closestdeer = np.argmin(distancematrix, axis=1)
 
         # Find the directions for each midge by finding vector from the closest deer
         midgedirections = np.empty(shape=(self.size, 2), dtype=float)
-        for i in range(swarm.size):
-            midgedirections[i] = targetmatrix[i, closestdeer[i]]
+
+        for i in range(self.size):
+            midgedirections[i] = (targetmatrix[i, 0, closestdeer[i], 0], targetmatrix[i, 1, closestdeer[i], 1])
 
         # Calculate the distance that each midge must travel to reach the closest deer
         hostdistances = np.linalg.norm(midgedirections, axis=1)
@@ -135,23 +137,16 @@ class MidgeSwarm:
         matrix = np.empty(shape=(self.size, self.deerswarm.size, 2))
         pos = self.deerswarm.get_positions()
 
-        # deerxtiled = np.tile(pos[:, 0], (self.size, 1))
-        # deerytiled = np.tile(pos[:, 1], (self.size, 1))
 
-        # midgextiled = np.tile(self.get_positions()[:, 0], (self.deerswarm.size, 1))
-        # midgeytiled = np.tile(self.get_positions()[:, 1], (self.deerswarm.size, 1))
-
-        # dx = midgextiled.T - deerxtiled
-        
         answer = np.subtract.outer(self.get_positions(), pos)
 
-        # TODO: VERIFY THAT THIS WORKS
-        for i in range(self.deerswarm.size):
-            vectors = self.get_positions() - pos[i]
-            matrix[:, i] = vectors
+        # # TODO: VERIFY THAT THIS WORKS
+        # matrixtime = time.time()
+        # for i in range(self.deerswarm.size):
+        #     vectors = self.get_positions() - pos[i]
+        #     matrix[:, i] = vectors
 
-        print(answer - matrix)
-        return np.array(matrix)
+        return answer
 
     # Returns the numpy array of positions
     def get_positions(self):
@@ -199,7 +194,7 @@ class MidgeSwarm:
 
     def writetocsv(self, trial, fname='Results/midgesim'):
 
-        fname = fname + 'IIM' + str(int(self.totalinfectedmidges[0])) + 'Trial' + str(trial) + '.csv'
+        fname = fname + 'DPS' + str(self.dps) + 'Trial' + str(trial) + '.csv'
 
         with open(fname, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
