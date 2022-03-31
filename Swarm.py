@@ -296,11 +296,10 @@ def generate_random_vector(length, size, positions):
     return newvectors
 
 
-@jit
+
 def determinefeedingmidges(length, hostdistances, closestdeer, bitethresholddistance, dt, fed):
-    feedingmidges = np.full(length, False)
-    for i in range(length):
-        feedingmidges[i] = (hostdistances[closestdeer[i]] < bitethresholddistance * dt) & ~fed[i]
+
+    feedingmidges = (hostdistances[closestdeer] < bitethresholddistance * dt) & ~fed
 
     return feedingmidges
 

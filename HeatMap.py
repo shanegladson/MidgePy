@@ -2,7 +2,9 @@ import numpy as np
 import seaborn as sns
 import Swarm
 import Environment
-from SALib.sample import saltelli
+import threading
+import time
+import csv
 
 sns.set_style('whitegrid')
 
@@ -22,7 +24,9 @@ def SimMidges(j, dps, eip):
     deer = Swarm.DeerSwarm(envir=envir, size=deerpop, infected=deerinf)
     swrm = Swarm.MidgeSwarm(envir=envir, size=midgepop, deerswarm=deer, infected=midges, dps=dps, eip=eip)
     dt = 60  # Step the simulation every 60 seconds (1 minute)
-    steps = 300 * 60  # Total number of steps for the simulation
+    days = 60  # Length in days of the simulation
+    daylength = 300  # Number of steps in each day
+    steps = daylength * days  # Total number of steps for the simulation
 
     print("Moving swarm...")
     for i in range(steps):
@@ -41,20 +45,29 @@ def SimMidges(j, dps, eip):
 
 
 params = []
-for i in range(20):
-    for j in range(20):
-        params.append(((0.6+0.015*i), 10+0.5*j))
+for i in range(21):
+    for j in range(21):
+        params.append((0.6 + 0.15 * i, 10 + 0.5 * j))
 
 print(params)
 
-for i in range(7, 10):
-    results = np.empty(shape=(np.array(params).shape[0], np.array(params).shape[1]+1))
+
+def CalculateHeatMap(i):
     for j in range(len(params)):
-        dps, eip = params[j]
-        # results[j] = SimMidges(i, dps, eip)
-        results[j] = [dps, eip, SimMidges(i, dps, eip)]
-        print(j, results[j])
+        with open('Results/HeatMap/Trial' + str(i) + '.csv', 'a') as f:
+            writer = csv.writer(f, delimiter=',')
+            dps, eip = params[j]
+            print('Thread', i, 'Trial', j, 'in progress')
 
-    np.savetxt(fname='Results/HeatMap/Trial' + str(i) + '.csv', X=results, delimiter=',', newline='\n')
+            writer.writerow([dps, eip, SimMidges(i, dps, eip)])
 
 
+threadlist = []
+for i in range(10):
+    threadlist.append(threading.Thread(target=CalculateHeatMap, args=(i,)))
+
+for t in threadlist:
+    t.start()
+
+for t in threadlist:
+    t.join()
