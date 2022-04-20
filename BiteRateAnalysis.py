@@ -7,19 +7,19 @@ import threading
 # THE PURPOSE OF THIS ANALYSIS IS TO UNDERSTAND HOW DPS AFFECTS BITING RATE
 
 def SimMidges(j, dps):
-    midgedeerratio = 100  # Midge/deer ratio
+    midgehostratio = 100  # Midge/host ratio
 
-    deerpop = 100
-    midgepop = deerpop * midgedeerratio
+    hostpop = 100
+    midgepop = hostpop * midgehostratio
 
     midges = np.full(midgepop, True)  # ALL FIRST GENERATION MIDGES WILL BE INFECTED, NO OTHERS
 
-    deerinf = np.full(deerpop, False)  # Entire deer population is naive to BTV
+    hostinf = np.full(hostpop, False)  # Entire host population is naive to BTV
 
     envir = Environment.Envir(length=1000)
-    deer = Swarm.DeerSwarm(envir=envir, size=deerpop, infected=deerinf)
-    swrm = Swarm.MidgeSwarm(envir=envir, size=midgepop, deerswarm=deer, infected=midges, dps=dps)
-    swrm.pVtoH = 0  # Don't want to consider transmission to deer
+    host = Swarm.HostSwarm(envir=envir, size=hostpop, infected=hostinf)
+    swrm = Swarm.MidgeSwarm(envir=envir, size=midgepop, hostswarm=host, infected=midges, dps=dps)
+    swrm.pVtoH = 0  # Don't want to consider transmission to host
     swrm.eip = 100  # Again just to be sure
     dt = 60  # Step the simulation every 60 seconds (1 minute)
     steps = 0  # Track the total number of steps for the simulation
